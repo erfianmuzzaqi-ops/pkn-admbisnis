@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIM-PKN FISIP | Sistem Pendaftaran & Penjadwalan Ujian PKN</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Print Styles: Hanya mencetak dokumen resmi A4 tanpa elemen UI web */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printModalOverlay, #printDocumentArea, #printDocumentArea * {
+                visibility: visible;
+            }
+            #printModalOverlay {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+            }
+            #printDocumentArea {
+                width: 100%;
+                max-width: 100%;
+                padding: 10mm 15mm !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                font-family: 'Times New Roman', Times, serif !important;
+                color: #000 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+            }
+        }
+
+        /* Formal Document Font Preview */
+        .formal-doc {
+            font-family: 'Times New Roman', Times, serif;
+            line-height: 1.45;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 no-print"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between py-3 gap-3">
+                <!-- Brand Logo & Title -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center text-white shadow-md shadow-indigo-200 shrink-0">
+                        <i class="fa-solid fa-graduation-cap text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="font-bold text-slate-900 text-base sm:text-lg tracking-tight">SIM-PKN FISIP</h1>
+                            <span class="px-2 py-0.5 text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full">v2.0 Cloud Ready</span>
+                        </div>
+                        <p class="text-xs text-slate-500">Sistem Pendaftaran & Penjadwalan Ujian PKN • Univ. Yudharta Pasuruan</p>
+                    </div>
+                </div>
+
+                <!-- Role Switcher & Backend Config -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Quick Role Switcher -->
+                    <div class="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200 overflow-x-auto max-w-full">
+                        <button onclick="switchRole('mahasiswa')" id="btn-role-mahasiswa" class="role-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-user-graduate"></i> Mahasiswa
+                        </button>
+                        <button onclick="switchRole('kaprodi')" id="btn-role-kaprodi" class="role-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-calendar-check"></i> Kaprodi
+                        </button>
+                        <button onclick="switchRole('tu')" id="btn-role-tu" class="role-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-file-signature"></i> Staf TU
+                        </button>
+                        <button onclick="switchRole('dosen')" id="btn-role-dosen" class="role-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-chalkboard-user"></i> Dosen Penguji
+                        </button>
+                    </div>
+
+                    <!-- Setup Google Sheets / Apps Script Modal Trigger -->
+                    <button onclick="openSetupModal()" class="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition flex items-center gap-1.5" title="Hubungkan ke Google Sheets & Google Docs">
+                        <i class="fa-brands fa-google-drive"></i>
+                        <span class="hidden sm:inline">Setup Backend</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 no-print">
+
+        <!-- Active Role Context Banner -->
+        <div id="roleBanner" class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="space-y-1">
+                <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/10 text-indigo-200 text-xs font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="bannerBadge">Mode Akses: Mahasiswa</span>
+                </div>
+                <h2 id="bannerTitle" class="text-xl sm:text-2xl font-bold tracking-tight">Portal Pendaftaran & Jadwal Ujian PKN</h2>
+                <p id="bannerDesc" class="text-xs sm:text-sm text-slate-300 max-w-2xl">Daftarkan ujian Praktik Kerja Nyata Anda, unggah tautan berkas persyaratan, dan pantau jadwal serta dosen penguji Anda secara real-time.</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <button onclick="resetDemoData()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition border border-white/15 flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-right"></i> Reset Data Demo
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary Metrics Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Total Pendaftar</p>
+                    <p id="statTotal" class="text-2xl font-bold text-slate-900">0</p>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Menunggu Verifikasi TU</p>
+                    <p id="statPending" class="text-2xl font-bold text-slate-900">0</p>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-solid fa-file-circle-check"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Siap Dijadwalkan</p>
+                    <p id="statVerified" class="text-2xl font-bold text-slate-900">0</p>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Sudah Terjadwal</p>
+                    <p id="statScheduled" class="text-2xl font-bold text-slate-900">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- VIEW 1: MAHASISWA                                                     -->
+        <!-- ===================================================================== -->
+        <section id="view-mahasiswa" class="role-view space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Form Pendaftaran Ujian PKN (5 cols) -->
+                <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-pen-to-square text-indigo-600"></i> Form Pendaftaran Ujian PKN
+                        </h3>
+                        <span class="text-[11px] text-slate-500">Wajib diisi lengkap</span>
+                    </div>
+                    <form id="formPendaftaranMhs" onsubmit="handleMhsSubmit(event)" class="p-5 space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">NIM <span class="text-rose-500">*</span></label>
+                                <input type="text" id="mhsNim" required placeholder="Contoh: 202269010045" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Program Studi <span class="text-rose-500">*</span></label>
+                                <select id="mhsProdi" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition">
+                                    <option value="Administrasi Publik">Administrasi Publik</option>
+                                    <option value="Administrasi Bisnis">Administrasi Bisnis</option>
+                                    <option value="Ilmu Komunikasi">Ilmu Komunikasi</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap (Sesuai KTM/Ijazah) <span class="text-rose-500">*</span></label>
+                            <input type="text" id="mhsNama" required placeholder="Contoh: Ahmad Fauzi Hidayat" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Lokasi / Instansi Tempat PKN <span class="text-rose-500">*</span></label>
+                            <input type="text" id="mhsLokasi" required placeholder="Contoh: Dinas Komunikasi dan Informatika Kab. Pasuruan" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Judul Laporan PKN <span class="text-rose-500">*</span></label>
+                            <textarea id="mhsJudul" rows="2" required placeholder="Tuliskan judul laporan PKN secara lengkap..." class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Dosen Pembimbing Lapangan / Kampus <span class="text-rose-500">*</span></label>
+                            <select id="mhsPembimbing" required class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition">
+                                <!-- Diisi dinamis oleh JS -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tautan Google Drive Berkas Syarat <span class="text-rose-500">*</span></label>
+                            <input type="url" id="mhsLinkBerkas" required placeholder="https://drive.google.com/drive/folders/..." class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                            <p class="text-[11px] text-slate-400 mt-1">Berisi: Laporan PKN ACC, Surat Keterangan Selesai PKN Instansi, & KRS. Pastikan akses link <b>Anyone with the link</b>.</p>
+                        </div>
+
+                        <button type="submit" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-sm shadow-indigo-200 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-paper-plane"></i> Kirim Pendaftaran Ujian PKN
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Jadwal & Status Pendaftaran Mahasiswa (7 cols) -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                    <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-week text-indigo-600"></i> Papan Pengumuman & Jadwal Ujian PKN
+                        </h3>
+                        <div class="relative w-full sm:w-64">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            <input type="text" id="searchMhsInput" onkeyup="renderMahasiswaTable()" placeholder="Cari NIM atau Nama..." class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto flex-grow">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                    <th class="py-3 px-4">Mahasiswa</th>
+                                    <th class="py-3 px-4">Judul & Instansi</th>
+                                    <th class="py-3 px-4">Status</th>
+                                    <th class="py-3 px-4">Jadwal & Penguji</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyMahasiswa" class="divide-y divide-slate-100 text-xs">
+                                <!-- Diisi dinamis oleh JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- VIEW 2: KAPRODI (PENJADWALAN & PLOTTING PENGUJI)                      -->
+        <!-- ===================================================================== -->
+        <section id="view-kaprodi" class="role-view hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-plus text-indigo-600"></i> Plotting Jadwal Ujian & Tim Penguji
+                        </h3>
+                        <p class="text-xs text-slate-500">Pilih mahasiswa yang berkasnya sudah diverifikasi TU untuk menentukan tanggal, ruang, dan dosen penguji.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-medium text-slate-600">Filter Prodi:</label>
+                        <select id="filterProdiKaprodi" onchange="renderKaprodiTable()" class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="ALL">Semua Program Studi</option>
+                            <option value="Administrasi Publik">Administrasi Publik</option>
+                            <option value="Administrasi Bisnis">Administrasi Bisnis</option>
+                            <option value="Ilmu Komunikasi">Ilmu Komunikasi</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">Mahasiswa & Prodi</th>
+                                <th class="py-3 px-4">Judul Laporan PKN</th>
+                                <th class="py-3 px-4">Status Berkas</th>
+                                <th class="py-3 px-4">Jadwal Saat Ini</th>
+                                <th class="py-3 px-4">Tim Penguji</th>
+                                <th class="py-3 px-4 text-right">Aksi Plotting</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyKaprodi" class="divide-y divide-slate-100 text-xs">
+                            <!-- Diisi dinamis oleh JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- VIEW 3: STAF TU (VERIFIKASI BERKAS & CETAK BERITA ACARA)              -->
+        <!-- ===================================================================== -->
+        <section id="view-tu" class="role-view hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-folder-open text-indigo-600"></i> Administrasi Berkas & Cetak Berita Acara Ujian
+                        </h3>
+                        <p class="text-xs text-slate-500">Verifikasi kelengkapan syarat pendaftaran mahasiswa dan cetak Berita Acara Ujian bagi yang sudah terjadwal.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="filterStatusTu" onchange="renderTuTable()" class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white font-medium text-slate-700 outline-none">
+                            <option value="ALL">Semua Status</option>
+                            <option value="Menunggu Verifikasi">Menunggu Verifikasi</option>
+                            <option value="Terverifikasi">Terverifikasi (Belum Jadwal)</option>
+                            <option value="Terjadwal">Sudah Terjadwal (Siap Cetak BA)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">NIM & Nama</th>
+                                <th class="py-3 px-4">Prodi & Judul PKN</th>
+                                <th class="py-3 px-4">Berkas Syarat</th>
+                                <th class="py-3 px-4">Verifikasi TU</th>
+                                <th class="py-3 px-4">Jadwal Ujian</th>
+                                <th class="py-3 px-4 text-right">Dokumen Berita Acara</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyTu" class="divide-y divide-slate-100 text-xs">
+                            <!-- Diisi dinamis oleh JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- VIEW 4: DOSEN PENGUJI (JADWAL MENGUJI & SURAT UNDANGAN)               -->
+        <!-- ===================================================================== -->
+        <section id="view-dosen" class="role-view hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-user-tie text-indigo-600"></i> Portal Dosen Penguji Ujian PKN
+                        </h3>
+                        <p class="text-xs text-slate-500">Pilih nama Anda untuk melihat daftar mahasiswa yang diuji dan mengunduh Surat Undangan Menguji resmi.</p>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div class="min-w-[260px]">
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Pilih Akun Dosen Penguji:</label>
+                            <select id="selectDosenLogin" onchange="renderDosenView()" class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-indigo-300 bg-indigo-50/50 text-indigo-950 outline-none focus:ring-2 focus:ring-indigo-500">
+                                <!-- Diisi dinamis oleh JS -->
+                            </select>
+                        </div>
+                        <button onclick="openSuratUndanganModal()" id="btnUnduhSuratUndangan" class="px-4 py-2.5 mt-0 sm:mt-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-envelope-open-text"></i> Cetak / Unduh Surat Undangan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Info Ringkas Dosen -->
+                <div id="dosenInfoBox" class="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <!-- Diisi dinamis oleh JS -->
+                </div>
+
+                <!-- Tabel Jadwal Menguji Dosen -->
+                <div class="mt-5 overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">Waktu & Ruang Ujian</th>
+                                <th class="py-3 px-4">Mahasiswa</th>
+                                <th class="py-3 px-4">Judul Laporan & Instansi PKN</th>
+                                <th class="py-3 px-4">Peran Penguji</th>
+                                <th class="py-3 px-4 text-right">Berkas Laporan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyDosen" class="divide-y divide-slate-100 text-xs">
+                            <!-- Diisi dinamis oleh JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-auto no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <p>© 2026 Fakultas Ilmu Sosial dan Ilmu Politik • Universitas Yudharta Pasuruan</p>
+            <p>Mode Penyimpanan: <span id="storageModeBadge" class="font-semibold text-indigo-600">Local Browser Storage (Demo Aktif)</span></p>
+        </div>
+    </footer>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 1: PLOTTING JADWAL & PENGUJI (KAPRODI)                              -->
+    <!-- ========================================================================= -->
+    <div id="modalPlotting" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-fade-in">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-check text-indigo-600"></i> Atur Jadwal & Penguji Ujian PKN
+                </h3>
+                <button onclick="closeModal('modalPlotting')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form onsubmit="savePlottingJadwal(event)" class="p-6 space-y-4">
+                <input type="hidden" id="plotId">
+                <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs space-y-1">
+                    <p class="font-bold text-indigo-950" id="plotMhsInfo">Nama Mahasiswa (NIM)</p>
+                    <p class="text-indigo-800 line-clamp-2" id="plotJudulInfo">Judul Laporan PKN</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Ujian <span class="text-rose-500">*</span></label>
+                        <input type="date" id="plotTanggal" required class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Waktu / Jam <span class="text-rose-500">*</span></label>
+                        <input type="text" id="plotJam" required placeholder="Contoh: 09.00 - 10.00 WIB" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Ruang Sidang / Link Zoom <span class="text-rose-500">*</span></label>
+                    <input type="text" id="plotRuang" required placeholder="Contoh: Ruang Sidang FISIP Lt. 2 / Gedung B" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Ketua Penguji (Penguji 1) <span class="text-rose-500">*</span></label>
+                    <select id="plotPenguji1" required class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Anggota Penguji (Penguji 2) <span class="text-rose-500">*</span></label>
+                    <select id="plotPenguji2" required class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                </div>
+
+                <div class="pt-2 flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeModal('modalPlotting')" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50">Batal</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm">Simpan Jadwal & Penguji</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 2: PREVIEW & CETAK DOKUMEN RESMI (BERITA ACARA & SURAT UNDANGAN)    -->
+    <!-- ========================================================================= -->
+    <div id="printModalOverlay" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 hidden overflow-y-auto p-4 sm:p-6">
+        <div class="max-w-4xl mx-auto space-y-4">
+            <!-- Toolbar Aksi (Disembunyikan saat Print) -->
+            <div class="bg-white rounded-2xl px-5 py-3 shadow-lg flex flex-wrap items-center justify-between gap-3 no-print">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                        <i class="fa-solid fa-print"></i>
+                    </span>
+                    <div>
+                        <h4 id="printModalTitle" class="font-bold text-slate-800 text-sm">Pratinjau Dokumen Resmi</h4>
+                        <p class="text-[11px] text-slate-500">Gunakan ukuran kertas A4 saat mencetak atau menyimpan sebagai PDF.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm flex items-center gap-2">
+                        <i class="fa-solid fa-file-pdf"></i> Cetak / Simpan PDF
+                    </button>
+                    <button onclick="closeModal('printModalOverlay')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+
+            <!-- Kertas A4 Dokumen Resmi -->
+            <div id="printDocumentArea" class="bg-white shadow-2xl mx-auto p-8 sm:p-12 text-black formal-doc min-h-[297mm]">
+                <!-- Konten Dokumen di-render dinamis oleh JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 3: SETUP BACKEND GOOGLE SHEETS & APPS SCRIPT                        -->
+    <!-- ========================================================================= -->
+    <div id="modalSetupBackend" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-brands fa-google-drive text-emerald-600 text-lg"></i>
+                    <h3 class="font-bold text-slate-800 text-base">Integrasi Database Google Sheets & Auto-PDF</h3>
+                </div>
+                <button onclick="closeModal('modalSetupBackend')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto space-y-5 text-xs text-slate-600">
+                <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-1">
+                    <p class="font-bold text-sm">Cara Menghubungkan ke Google Sheets (Gratis 100%):</p>
+                    <ol class="list-decimal ml-4 space-y-1">
+                        <li>Buat Google Sheets baru dengan 1 sheet bernama <b>Data_PKN</b>.</li>
+                        <li>Klik menu <b>Extensions &gt; Apps Script</b>, lalu tempel kode di bawah ini dan klik <b>Deploy &gt; New Deployment &gt; Web App</b> (Akses: <i>Anyone</i>).</li>
+                        <li>Salin URL Web App yang muncul dan tempelkan pada kolom di bawah ini agar data tersimpan langsung ke Google Drive kampus.</li>
+                    </ol>
+                </div>
+
+                <!-- Input URL Web App -->
+                <div>
+                    <label class="block font-bold text-slate-800 mb-1">URL Google Apps Script Web App (Opsional):</label>
+                    <div class="flex gap-2">
+                        <input type="url" id="gasWebhookUrl" placeholder="https://script.google.com/macros/s/AKfycbx.../exec" class="flex-grow px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none">
+                        <button onclick="saveGasUrl()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shrink-0">Simpan URL</button>
+                    </div>
+                </div>
+
+                <!-- Kode Apps Script Siap Salin -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="font-bold text-slate-800">Kode Backend Google Apps Script (Code.gs):</label>
+                        <button onclick="copyGasCode()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium flex items-center gap-1.5">
+                            <i class="fa-regular fa-copy"></i> Salin Kode
+                        </button>
+                    </div>
+                    <textarea id="gasCodeSnippet" readonly rows="11" class="w-full p-3 font-mono text-[11px] bg-slate-900 text-emerald-300 rounded-xl border border-slate-700 outline-none select-all">// Kode Backend SIM-PKN FISIP Universitas Yudharta Pasuruan
+// Tempelkan di Extensions > Apps Script pada Google Sheets Anda
+
+const SHEET_NAME = 'Data_PKN';
+
+function doGet(e) {
+  const sheet = getOrCreateSheet();
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0];
+  const data = rows.slice(1).map(row => {
+    let obj = {};
+    headers.forEach((h, i) => obj[h] = row[i]);
+    return obj;
+  });
+  return ContentService.createTextOutput(JSON.stringify({ status: 'success', data: data }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  const sheet = getOrCreateSheet();
+  const payload = JSON.parse(e.postData.contents);
+  
+  if (payload.action === 'create') {
+    sheet.appendRow([
+      payload.id, new Date(), payload.nim, payload.nama, payload.prodi,
+      payload.lokasi, payload.judul, payload.pembimbing, payload.linkBerkas,
+      'Menunggu Verifikasi', '', '', '', '', ''
+    ]);
+  }
+  return ContentService.createTextOutput(JSON.stringify({ status: 'saved' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getOrCreateSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    sheet.appendRow([
+      'id', 'timestamp', 'nim', 'nama', 'prodi', 'lokasi', 'judul',
+      'pembimbing', 'linkBerkas', 'status', 'tanggal', 'jam', 'ruang', 'penguji1', 'penguji2'
+    ]);
+  }
+  return sheet;
+}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- JAVASCRIPT APPLICATION LOGIC                                              -->
+    <!-- ========================================================================= -->
+    <script>
+        // 1. MASTER DATA DOSEN FISIP
+        const MASTER_DOSEN = [
+            { nidn: "0714058502", nama: "Dr. H. Ahmad Mulyadi, S.Sos., M.Si.", jabatan: "Lektor Kepala", prodi: "Administrasi Publik" },
+            { nidn: "0722088801", nama: "Siti Nurjanah, S.AB., M.AB.", jabatan: "Lektor", prodi: "Administrasi Bisnis" },
+            { nidn: "0710118903", nama: "M.Khoirul Anam, S.I.Kom., M.I.Kom.", jabatan: "Lektor", prodi: "Ilmu Komunikasi" },
+            { nidn: "0705039001", nama: "Nurul Hidayati, S.AP., M.AP.", jabatan: "Asisten Ahli", prodi: "Administrasi Publik" },
+            { nidn: "0719078704", nama: "Dewi Masithoh, S.Sos., M.Si.", jabatan: "Lektor", prodi: "Administrasi Bisnis" },
+            { nidn: "0728099102", nama: "Rizal Pahlevi, S.I.Kom., M.Med.Kom.", jabatan: "Asisten Ahli", prodi: "Ilmu Komunikasi" }
+        ];
+
+        // 2. DATA DEMO AWAL PENDAFTARAN PKN
+        const INITIAL_DATA = [
+            {
+                id: "PKN-2026-001",
+                nim: "202269010012",
+                nama: "Muhammad Rizky Pratama",
+                prodi: "Administrasi Publik",
+                lokasi: "Kantor Kecamatan Purwosari Kab. Pasuruan",
+                judul: "Implementasi Pelayanan Administrasi Terpadu Kecamatan (PATEN) Berbasis Digital di Kecamatan Purwosari",
+                pembimbing: "Dr. H. Ahmad Mulyadi, S.Sos., M.Si.",
+                linkBerkas: "https://drive.google.com/drive/folders/demo-berkas-01",
+                status: "Terjadwal",
+                tanggal: "2026-11-20",
+                jam: "09.00 - 10.00 WIB",
+                ruang: "Ruang Sidang FISIP Lt. 2",
+                penguji1: "Dr. H. Ahmad Mulyadi, S.Sos., M.Si.",
+                penguji2: "Nurul Hidayati, S.AP., M.AP."
+            },
+            {
+                id: "PKN-2026-002",
+                nim: "202269020034",
+                nama: "Lailatul Maghfiroh",
+                prodi: "Administrasi Bisnis",
+                lokasi: "PT. Cheil Jedang Indonesia Pasuruan",
+                judul: "Analisis Manajemen Rantai Pasok dan Distribusi Produk pada Divisi Logistik PT. Cheil Jedang Indonesia",
+                pembimbing: "Siti Nurjanah, S.AB., M.AB.",
+                linkBerkas: "https://drive.google.com/drive/folders/demo-berkas-02",
+                status: "Terjadwal",
+                tanggal: "2026-11-20",
+                jam: "10.30 - 11.30 WIB",
+                ruang: "Ruang Sidang FISIP Lt. 2",
+                penguji1: "Siti Nurjanah, S.AB., M.AB.",
+                penguji2: "Dewi Masithoh, S.Sos., M.Si."
+            },
+            {
+                id: "PKN-2026-003",
+                nim: "202269030019",
+                nama: "Dimas Wahyu Saputra",
+                prodi: "Ilmu Komunikasi",
+                lokasi: "Dinas Komunikasi dan Informatika Kab. Pasuruan",
+                judul: "Strategi Pengelolaan Konten Media Sosial Instagram @pemkabpasuruan dalam Meningkatkan Literasi Informasi Publik",
+                pembimbing: "M.Khoirul Anam, S.I.Kom., M.I.Kom.",
+                linkBerkas: "https://drive.google.com/drive/folders/demo-berkas-03",
+                status: "Terverifikasi",
+                tanggal: "",
+                jam: "",
+                ruang: "",
+                penguji1: "",
+                penguji2: ""
+            },
+            {
+                id: "PKN-2026-004",
+                nim: "202269010058",
+                nama: "Nadia Putri Rahmawati",
+                prodi: "Administrasi Publik",
+                lokasi: "Badan Pendapatan Daerah (BAPENDA) Kab. Pasuruan",
+                judul: "Efektivitas Sosialisasi Pembayaran Pajak Bumi dan Bangunan (PBB-P2) Melalui Layanan Mobile",
+                pembimbing: "Nurul Hidayati, S.AP., M.AP.",
+                linkBerkas: "https://drive.google.com/drive/folders/demo-berkas-04",
+                status: "Menunggu Verifikasi",
+                tanggal: "",
+                jam: "",
+                ruang: "",
+                penguji1: "",
+                penguji2: ""
+            }
+        ];
+
+        // State Aplikasi
+        let pknData = [];
+        let currentRole = 'mahasiswa';
+
+        // Inisialisasi saat halaman dimuat
+        window.onload = function() {
+            loadDataFromStorage();
+            populateDosenDropdowns();
+            switchRole('mahasiswa');
+            updateMetrics();
+        };
+
+        // Load & Save LocalStorage
+        function loadDataFromStorage() {
+            const saved = localStorage.getItem('simpkn_fisip_data_v1');
+            if (saved) {
+                pknData = JSON.parse(saved);
+            } else {
+                pknData = JSON.parse(JSON.stringify(INITIAL_DATA));
+                saveDataToStorage();
+            }
+
+            const gasUrl = localStorage.getItem('simpkn_gas_url');
+            if (gasUrl) {
+                document.getElementById('gasWebhookUrl').value = gasUrl;
+                document.getElementById('storageModeBadge').textContent = "Terhubung ke Google Sheets API";
+                document.getElementById('storageModeBadge').className = "font-semibold text-emerald-600";
+            }
+        }
+
+        function saveDataToStorage() {
+            localStorage.setItem('simpkn_fisip_data_v1', JSON.stringify(pknData));
+            updateMetrics();
+        }
+
+        function resetDemoData() {
+            pknData = JSON.parse(JSON.stringify(INITIAL_DATA));
+            saveDataToStorage();
+            refreshCurrentView();
+            showToast("Data demo berhasil dikembalikan ke kondisi awal.", "info");
+        }
+
+        // Isi semua dropdown dosen
+        function populateDosenDropdowns() {
+            const selects = ['mhsPembimbing', 'plotPenguji1', 'plotPenguji2', 'selectDosenLogin'];
+            selects.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.innerHTML = '';
+                MASTER_DOSEN.forEach(dsn => {
+                    const opt = document.createElement('option');
+                    opt.value = dsn.nama;
+                    opt.textContent = `${dsn.nama} (${dsn.prodi})`;
+                    el.appendChild(opt);
+                });
+            });
+            // Default penguji 2 pilih dosen kedua agar tidak sama
+            if (document.getElementById('plotPenguji2').options.length > 1) {
+                document.getElementById('plotPenguji2').selectedIndex = 1;
+            }
+        }
+
+        // Pergantian Role & Update Banner
+        function switchRole(role) {
+            currentRole = role;
+
+            // Update tombol navigasi
+            document.querySelectorAll('.role-btn').forEach(btn => {
+                btn.classList.remove('bg-white', 'text-indigo-700', 'shadow-sm', 'font-bold');
+                btn.classList.add('text-slate-600', 'hover:text-slate-900');
+            });
+            const activeBtn = document.getElementById(`btn-role-${role}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-600', 'hover:text-slate-900');
+                activeBtn.classList.add('bg-white', 'text-indigo-700', 'shadow-sm', 'font-bold');
+            }
+
+            // Sembunyikan semua section, tampilkan yang aktif
+            document.querySelectorAll('.role-view').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(`view-${role}`).classList.remove('hidden');
+
+            // Update Banner Konteks
+            const bannerConfig = {
+                mahasiswa: {
+                    badge: "Mode Akses: Mahasiswa",
+                    title: "Portal Pendaftaran & Jadwal Ujian PKN",
+                    desc: "Ajukan pendaftaran ujian Praktik Kerja Nyata, lampirkan berkas Google Drive, dan pantau jadwal serta tim dosen penguji Anda."
+                },
+                kaprodi: {
+                    badge: "Mode Akses: Ketua Program Studi (Kaprodi)",
+                    title: "Penjadwalan Ujian & Plotting Dosen Penguji",
+                    desc: "Tetapkan tanggal, waktu, ruang sidang, serta Ketua dan Anggota Penguji bagi mahasiswa yang berkasnya telah diverifikasi TU."
+                },
+                tu: {
+                    badge: "Mode Akses: Staf Tata Usaha (TU) Fakultas",
+                    title: "Verifikasi Administrasi & Penerbitan Berita Acara",
+                    desc: "Periksa kelengkapan berkas pendaftaran mahasiswa dan cetak lembar Berita Acara Ujian PKN resmi siap tanda tangan."
+                },
+                dosen: {
+                    badge: "Mode Akses: Dosen Penguji Ujian PKN",
+                    title: "Jadwal Menguji & Unduh Surat Undangan Resmi",
+                    desc: "Lihat jadwal mahasiswa yang akan Anda uji serta cetak Surat Undangan Menguji resmi ber-kop Fakultas."
+                }
+            };
+
+            document.getElementById('bannerBadge').textContent = bannerConfig[role].badge;
+            document.getElementById('bannerTitle').textContent = bannerConfig[role].title;
+            document.getElementById('bannerDesc').textContent = bannerConfig[role].desc;
+
+            refreshCurrentView();
+        }
+
+        function refreshCurrentView() {
+            if (currentRole === 'mahasiswa') renderMahasiswaTable();
+            if (currentRole === 'kaprodi') renderKaprodiTable();
+            if (currentRole === 'tu') renderTuTable();
+            if (currentRole === 'dosen') renderDosenView();
+        }
+
+        // Update Kartu Statistik
+        function updateMetrics() {
+            document.getElementById('statTotal').textContent = pknData.length;
+            document.getElementById('statPending').textContent = pknData.filter(d => d.status === 'Menunggu Verifikasi').length;
+            document.getElementById('statVerified').textContent = pknData.filter(d => d.status === 'Terverifikasi').length;
+            document.getElementById('statScheduled').textContent = pknData.filter(d => d.status === 'Terjadwal').length;
+        }
+
+        // Helper Badge Status
+        function getStatusBadge(status) {
+            if (status === 'Terjadwal') {
+                return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-circle-check"></i> Terjadwal</span>`;
+            } else if (status === 'Terverifikasi') {
+                return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200"><i class="fa-solid fa-check"></i> Berkas Valid</span>`;
+            } else if (status === 'Perlu Revisi') {
+                return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200"><i class="fa-solid fa-triangle-exclamation"></i> Revisi Berkas</span>`;
+            }
+            return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"><i class="fa-solid fa-hourglass-half"></i> Menunggu TU</span>`;
+        }
+
+        // Format Tanggal Indonesia
+        function formatTanggalIndo(dateStr) {
+            if (!dateStr) return '-';
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const d = new Date(dateStr + 'T00:00:00');
+            return isNaN(d) ? dateStr : d.toLocaleDateString('id-ID', options);
+        }
+
+        // =========================================================================
+        // LOGIC ROLE 1: MAHASISWA
+        // =========================================================================
+        function handleMhsSubmit(e) {
+            e.preventDefault();
+            const newEntry = {
+                id: "PKN-2026-" + String(pknData.length + 1).padStart(3, '0'),
+                nim: document.getElementById('mhsNim').value.trim(),
+                nama: document.getElementById('mhsNama').value.trim(),
+                prodi: document.getElementById('mhsProdi').value,
+                lokasi: document.getElementById('mhsLokasi').value.trim(),
+                judul: document.getElementById('mhsJudul').value.trim(),
+                pembimbing: document.getElementById('mhsPembimbing').value,
+                linkBerkas: document.getElementById('mhsLinkBerkas').value.trim(),
+                status: "Menunggu Verifikasi",
+                tanggal: "",
+                jam: "",
+                ruang: "",
+                penguji1: "",
+                penguji2: ""
+            };
+
+            pknData.unshift(newEntry);
+            saveDataToStorage();
+            syncToGoogleSheets('create', newEntry);
+            document.getElementById('formPendaftaranMhs').reset();
+            renderMahasiswaTable();
+            showToast(`Pendaftaran atas nama ${newEntry.nama} berhasil dikirim!`, "success");
+        }
+
+        function renderMahasiswaTable() {
+            const keyword = document.getElementById('searchMhsInput').value.toLowerCase();
+            const tbody = document.getElementById('tbodyMahasiswa');
+            const filtered = pknData.filter(d =>
+                d.nim.toLowerCase().includes(keyword) ||
+                d.nama.toLowerCase().includes(keyword) ||
+                d.prodi.toLowerCase().includes(keyword)
+            );
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400">Data pendaftaran tidak ditemukan.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(item => `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-3.5 px-4 align-top">
+                        <p class="font-bold text-slate-900">${item.nama}</p>
+                        <p class="text-[11px] text-slate-500 font-mono">${item.nim}</p>
+                        <span class="inline-block mt-1 px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium">${item.prodi}</span>
+                    </td>
+                    <td class="py-3.5 px-4 align-top max-w-xs">
+                        <p class="font-medium text-slate-800 line-clamp-2" title="${item.judul}">${item.judul}</p>
+                        <p class="text-[11px] text-indigo-600 mt-1"><i class="fa-solid fa-building mr-1"></i>${item.lokasi}</p>
+                    </td>
+                    <td class="py-3.5 px-4 align-top whitespace-nowrap">
+                        ${getStatusBadge(item.status)}
+                    </td>
+                    <td class="py-3.5 px-4 align-top">
+                        ${item.status === 'Terjadwal' ? `
+                            <div class="space-y-1 text-[11px]">
+                                <p class="font-bold text-slate-800"><i class="fa-regular fa-calendar text-indigo-600 mr-1"></i>${formatTanggalIndo(item.tanggal)}</p>
+                                <p class="text-slate-600"><i class="fa-regular fa-clock text-indigo-600 mr-1"></i>${item.jam} • <b>${item.ruang}</b></p>
+                                <div class="pt-1 border-t border-slate-100 text-slate-600">
+                                    <p><span class="font-semibold text-slate-700">Penguji 1:</span> ${item.penguji1}</p>
+                                    <p><span class="font-semibold text-slate-700">Penguji 2:</span> ${item.penguji2}</p>
+                                </div>
+                            </div>
+                        ` : `
+                            <span class="text-[11px] text-slate-400 italic">Menunggu jadwal dari Kaprodi</span>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // =========================================================================
+        // LOGIC ROLE 2: KAPRODI
+        // =========================================================================
+        function renderKaprodiTable() {
+            const prodiFilter = document.getElementById('filterProdiKaprodi').value;
+            const tbody = document.getElementById('tbodyKaprodi');
+            const filtered = pknData.filter(d => prodiFilter === 'ALL' || d.prodi === prodiFilter);
+
+            tbody.innerHTML = filtered.map(item => `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-3.5 px-4 align-top">
+                        <p class="font-bold text-slate-900">${item.nama}</p>
+                        <p class="text-[11px] text-slate-500 font-mono">${item.nim}</p>
+                        <span class="inline-block mt-1 px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold">${item.prodi}</span>
+                    </td>
+                    <td class="py-3.5 px-4 align-top max-w-xs">
+                        <p class="text-slate-800 font-medium line-clamp-2">${item.judul}</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Pembimbing: ${item.pembimbing}</p>
+                    </td>
+                    <td class="py-3.5 px-4 align-top whitespace-nowrap">
+                        ${getStatusBadge(item.status)}
+                    </td>
+                    <td class="py-3.5 px-4 align-top">
+                        ${item.tanggal ? `
+                            <p class="font-bold text-slate-800">${formatTanggalIndo(item.tanggal)}</p>
+                            <p class="text-[11px] text-slate-600">${item.jam}</p>
+                            <p class="text-[11px] text-indigo-600 font-medium">${item.ruang}</p>
+                        ` : `<span class="text-slate-400 italic">Belum diatur</span>`}
+                    </td>
+                    <td class="py-3.5 px-4 align-top text-[11px]">
+                        ${item.penguji1 ? `
+                            <p><span class="font-semibold">1.</span> ${item.penguji1}</p>
+                            <p><span class="font-semibold">2.</span> ${item.penguji2}</p>
+                        ` : `<span class="text-slate-400 italic">-</span>`}
+                    </td>
+                    <td class="py-3.5 px-4 align-top text-right whitespace-nowrap">
+                        <button onclick="openPlottingModal('${item.id}')" class="px-3 py-1.5 rounded-xl ${item.status === 'Menunggu Verifikasi' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'} text-xs font-semibold transition inline-flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar-check"></i> ${item.tanggal ? 'Edit Jadwal' : 'Atur Jadwal'}
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openPlottingModal(id) {
+            const item = pknData.find(d => d.id === id);
+            if (!item) return;
+
+            document.getElementById('plotId').value = item.id;
+            document.getElementById('plotMhsInfo').textContent = `${item.nama} (${item.nim}) • ${item.prodi}`;
+            document.getElementById('plotJudulInfo').textContent = item.judul;
+            document.getElementById('plotTanggal').value = item.tanggal || new Date().toISOString().split('T')[0];
+            document.getElementById('plotJam').value = item.jam || "09.00 - 10.00 WIB";
+            document.getElementById('plotRuang').value = item.ruang || "Ruang Sidang FISIP Lt. 2";
+
+            if (item.penguji1) document.getElementById('plotPenguji1').value = item.penguji1;
+            if (item.penguji2) document.getElementById('plotPenguji2').value = item.penguji2;
+
+            document.getElementById('modalPlotting').classList.remove('hidden');
+        }
+
+        function savePlottingJadwal(e) {
+            e.preventDefault();
+            const id = document.getElementById('plotId').value;
+            const p1 = document.getElementById('plotPenguji1').value;
+            const p2 = document.getElementById('plotPenguji2').value;
+
+            if (p1 === p2) {
+                showToast("Penguji 1 dan Penguji 2 tidak boleh dosen yang sama!", "error");
+                return;
+            }
+
+            const idx = pknData.findIndex(d => d.id === id);
+            if (idx !== -1) {
+                pknData[idx].tanggal = document.getElementById('plotTanggal').value;
+                pknData[idx].jam = document.getElementById('plotJam').value;
+                pknData[idx].ruang = document.getElementById('plotRuang').value;
+                pknData[idx].penguji1 = p1;
+                pknData[idx].penguji2 = p2;
+                pknData[idx].status = "Terjadwal";
+
+                saveDataToStorage();
+                renderKaprodiTable();
+                closeModal('modalPlotting');
+                showToast(`Jadwal ujian untuk ${pknData[idx].nama} berhasil disimpan!`, "success");
+            }
+        }
+
+        // =========================================================================
+        // LOGIC ROLE 3: STAF TU (VERIFIKASI & BERITA ACARA)
+        // =========================================================================
+        function renderTuTable() {
+            const filter = document.getElementById('filterStatusTu').value;
+            const tbody = document.getElementById('tbodyTu');
+            const filtered = pknData.filter(d => filter === 'ALL' || d.status === filter);
+
+            tbody.innerHTML = filtered.map(item => `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-3.5 px-4 align-top">
+                        <p class="font-bold text-slate-900">${item.nama}</p>
+                        <p class="text-[11px] text-slate-500 font-mono">${item.nim}</p>
+                    </td>
+                    <td class="py-3.5 px-4 align-top max-w-xs">
+                        <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">${item.prodi}</span>
+                        <p class="text-slate-800 font-medium line-clamp-2 mt-1">${item.judul}</p>
+                    </td>
+                    <td class="py-3.5 px-4 align-top whitespace-nowrap">
+                        <a href="${item.linkBerkas}" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-indigo-700 font-semibold text-[11px] transition">
+                            <i class="fa-brands fa-google-drive"></i> Cek Berkas
+                        </a>
+                    </td>
+                    <td class="py-3.5 px-4 align-top whitespace-nowrap">
+                        <select onchange="updateStatusTu('${item.id}', this.value)" class="px-2.5 py-1.5 rounded-xl border border-slate-300 text-[11px] font-semibold bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="Menunggu Verifikasi" ${item.status === 'Menunggu Verifikasi' ? 'selected' : ''}>⏳ Menunggu Verifikasi</option>
+                            <option value="Terverifikasi" ${item.status === 'Terverifikasi' ? 'selected' : ''}>✅ Berkas Valid (ACC)</option>
+                            <option value="Perlu Revisi" ${item.status === 'Perlu Revisi' ? 'selected' : ''}>⚠️ Perlu Revisi</option>
+                            ${item.status === 'Terjadwal' ? `<option value="Terjadwal" selected>📅 Sudah Terjadwal</option>` : ''}
+                        </select>
+                    </td>
+                    <td class="py-3.5 px-4 align-top text-[11px]">
+                        ${item.tanggal ? `
+                            <p class="font-semibold text-slate-800">${formatTanggalIndo(item.tanggal)}</p>
+                            <p class="text-slate-500">${item.jam} (${item.ruang})</p>
+                        ` : `<span class="text-slate-400 italic">Belum dijadwalkan</span>`}
+                    </td>
+                    <td class="py-3.5 px-4 align-top text-right whitespace-nowrap">
+                        ${item.status === 'Terjadwal' ? `
+                            <button onclick="openBeritaAcaraModal('${item.id}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-print"></i> Cetak Berita Acara
+                            </button>
+                        ` : `
+                            <span class="text-[11px] text-slate-400 italic">Tunggu jadwal Kaprodi</span>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStatusTu(id, newStatus) {
+            const idx = pknData.findIndex(d => d.id === id);
+            if (idx !== -1) {
+                pknData[idx].status = newStatus;
+                saveDataToStorage();
+                renderTuTable();
+                showToast(`Status berkas ${pknData[idx].nama} diubah menjadi: ${newStatus}`, "info");
+            }
+        }
+
+        // GENERATE DOKUMEN BERITA ACARA UJIAN PKN (A4 PRINT READY)
+        function openBeritaAcaraModal(id) {
+            const item = pknData.find(d => d.id === id);
+            if (!item) return;
+
+            document.getElementById('printModalTitle').textContent = `Berita Acara Ujian PKN - ${item.nama}`;
+            const docArea = document.getElementById('printDocumentArea');
+
+            docArea.innerHTML = `
+                <!-- KOP SURAT RESMI -->
+                <div class="border-b-4 border-double border-black pb-3 mb-5 flex items-center gap-4 text-center">
+                    <div class="w-20 h-20 border-2 border-black rounded-full flex flex-col items-center justify-center shrink-0 font-bold text-[10px] leading-tight p-1">
+                        <span>LOGO</span>
+                        <span>YUDHARTA</span>
+                    </div>
+                    <div class="flex-grow">
+                        <p class="text-sm font-bold uppercase tracking-wide">YAYASAN DARUTTAQWA SENGONAGUNG</p>
+                        <h1 class="text-lg font-bold uppercase">UNIVERSITAS YUDHARTA PASURUAN</h1>
+                        <h2 class="text-base font-bold uppercase">FAKULTAS ILMU SOSIAL DAN ILMU POLITIK (FISIP)</h2>
+                        <p class="text-[11px]">Jl. Yudharta No. 07 (Pesantren Ngalah) Sengonagungs Purwosari Pasuruan 67162</p>
+                        <p class="text-[11px]">Website: fisip.yudharta.ac.id • Email: fisip@yudharta.ac.id</p>
+                    </div>
+                </div>
+
+                <!-- JUDUL BERITA ACARA -->
+                <div class="text-center mb-5">
+                    <h3 class="text-base font-bold underline uppercase">BERITA ACARA UJIAN PRAKTIK KERJA NYATA (PKN)</h3>
+                    <p class="text-xs">Nomor: .../BA-PKN/FISIP-UYP/XI/2026</p>
+                </div>
+
+                <!-- PARAGRAF PEMBUKA -->
+                <p class="text-sm text-justify mb-4">
+                    Pada hari ini, <b>${formatTanggalIndo(item.tanggal)}</b>, bertempat di <b>${item.ruang}</b> Fakultas Ilmu Sosial dan Ilmu Politik Universitas Yudharta Pasuruan, telah dilaksanakan Ujian Laporan Praktik Kerja Nyata (PKN) bagi mahasiswa:
+                </p>
+
+                <!-- IDENTITAS MAHASISWA -->
+                <table class="w-full text-sm mb-4">
+                    <tr>
+                        <td class="w-44 py-1">Nama Mahasiswa</td>
+                        <td class="w-4">:</td>
+                        <td class="font-bold">${item.nama}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1">Nomor Induk Mahasiswa</td>
+                        <td>:</td>
+                        <td>${item.nim}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1">Program Studi</td>
+                        <td>:</td>
+                        <td>${item.prodi}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1">Instansi / Lokasi PKN</td>
+                        <td>:</td>
+                        <td>${item.lokasi}</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 align-top">Judul Laporan PKN</td>
+                        <td class="align-top">:</td>
+                        <td class="font-bold italic">"${item.judul}"</td>
+                    </tr>
+                    <tr>
+                        <td class="py-1">Waktu Pelaksanaan</td>
+                        <td>:</td>
+                        <td>${item.jam}</td>
+                    </tr>
+                </table>
+
+                <!-- TABEL REKAPITULASI NILAI PENGUJI -->
+                <p class="text-sm font-bold mb-2">Rekapitulasi Penilaian Ujian PKN:</p>
+                <table class="w-full border-collapse border border-black text-xs mb-4">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="border border-black p-2 w-10">No</th>
+                            <th class="border border-black p-2 text-left">Jabatan & Nama Tim Penguji</th>
+                            <th class="border border-black p-2 w-28">Nilai Angka (0-100)</th>
+                            <th class="border border-black p-2 w-36">Tanda Tangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border border-black p-3 text-center">1</td>
+                            <td class="border border-black p-3">
+                                <span class="text-[10px] uppercase font-bold block">Ketua Penguji (Penguji 1):</span>
+                                <span class="font-bold text-sm">${item.penguji1}</span>
+                            </td>
+                            <td class="border border-black p-3 text-center"></td>
+                            <td class="border border-black p-3 h-14"></td>
+                        </tr>
+                        <tr>
+                            <td class="border border-black p-3 text-center">2</td>
+                            <td class="border border-black p-3">
+                                <span class="text-[10px] uppercase font-bold block">Anggota Penguji (Penguji 2):</span>
+                                <span class="font-bold text-sm">${item.penguji2}</span>
+                            </td>
+                            <td class="border border-black p-3 text-center"></td>
+                            <td class="border border-black p-3 h-14"></td>
+                        </tr>
+                        <tr class="font-bold bg-gray-50">
+                            <td colspan="2" class="border border-black p-2 text-right">Nilai Rata-Rata Akhir / Huruf Mutu :</td>
+                            <td class="border border-black p-2 text-center">......... / ( ... )</td>
+                            <td class="border border-black p-2"></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- KEPUTUSAN HASIL UJIAN -->
+                <div class="border border-black p-3 text-xs mb-6">
+                    <p class="font-bold mb-1">Keputusan Tim Penguji (Coret yang tidak perlu):</p>
+                    <p>Mahasiswa tersebut di atas dinyatakan: <b>LULUS TANPA REVISI / LULUS DENGAN REVISI / TIDAK LULUS</b>.</p>
+                    <p class="mt-2">Catatan Revisi (jika ada): ........................................................................................................................</p>
+                    <p class="mt-4">....................................................................................................................................................................</p>
+                </div>
+
+                <!-- TANDA TANGAN PENGESAHAN -->
+                <div class="grid grid-cols-2 gap-8 text-xs mt-6">
+                    <div class="text-center">
+                        <p>Mengetahui,</p>
+                        <p>Ketua Program Studi ${item.prodi},</p>
+                        <div class="h-16"></div>
+                        <p class="font-bold underline">( .................................................... )</p>
+                        <p>NIDN.</p>
+                    </div>
+                    <div class="text-center">
+                        <p>Pasuruan, ${formatTanggalIndo(item.tanggal)}</p>
+                        <p>Mahasiswa yang Diuji,</p>
+                        <div class="h-16"></div>
+                        <p class="font-bold underline">${item.nama}</p>
+                        <p>NIM. ${item.nim}</p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('printModalOverlay').classList.remove('hidden');
+        }
+
+        // =========================================================================
+        // LOGIC ROLE 4: DOSEN PENGUJI & SURAT UNDANGAN
+        // =========================================================================
+        function renderDosenView() {
+            const selectedDosenName = document.getElementById('selectDosenLogin').value;
+            const dosenObj = MASTER_DOSEN.find(d => d.nama === selectedDosenName) || MASTER_DOSEN[0];
+
+            // Filter jadwal dimana dosen ini menjadi Penguji 1 atau Penguji 2
+            const jadwalMenguji = pknData.filter(d =>
+                d.status === 'Terjadwal' &&
+                (d.penguji1 === selectedDosenName || d.penguji2 === selectedDosenName)
+            );
+
+            // Render Box Info Dosen
+            document.getElementById('dosenInfoBox').innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-base">
+                        ${dosenObj.nama.charAt(0)}
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-900 text-sm">${dosenObj.nama}</p>
+                        <p class="text-xs text-slate-500">NIDN: ${dosenObj.nidn} • ${dosenObj.jabatan} (${dosenObj.prodi})</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs">
+                        Total Jadwal Menguji: <b class="text-indigo-600">${jadwalMenguji.length} Mahasiswa</b>
+                    </div>
+                </div>
+            `;
+
+            const btnUnduh = document.getElementById('btnUnduhSuratUndangan');
+            if (jadwalMenguji.length === 0) {
+                btnUnduh.disabled = true;
+                btnUnduh.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                btnUnduh.disabled = false;
+                btnUnduh.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+
+            const tbody = document.getElementById('tbodyDosen');
+            if (jadwalMenguji.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400">Belum ada jadwal menguji ujian PKN untuk dosen terpilih.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = jadwalMenguji.map(item => {
+                const peran = item.penguji1 === selectedDosenName ? "Ketua Penguji (Penguji 1)" : "Anggota Penguji (Penguji 2)";
+                return `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3.5 px-4 align-top whitespace-nowrap">
+                            <p class="font-bold text-slate-900">${formatTanggalIndo(item.tanggal)}</p>
+                            <p class="text-[11px] text-slate-600">${item.jam}</p>
+                            <span class="inline-block mt-1 px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold">${item.ruang}</span>
+                        </td>
+                        <td class="py-3.5 px-4 align-top">
+                            <p class="font-bold text-slate-800">${item.nama}</p>
+                            <p class="text-[11px] text-slate-500 font-mono">${item.nim} • ${item.prodi}</p>
+                        </td>
+                        <td class="py-3.5 px-4 align-top max-w-xs">
+                            <p class="text-slate-800 font-medium line-clamp-2">${item.judul}</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">Lokasi: ${item.lokasi}</p>
+                        </td>
+                        <td class="py-3.5 px-4 align-top whitespace-nowrap">
+                            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold ${item.penguji1 === selectedDosenName ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
+                                ${peran}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 align-top text-right whitespace-nowrap">
+                            <a href="${item.linkBerkas}" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-indigo-50 text-indigo-700 font-semibold text-xs inline-flex items-center gap-1.5 transition">
+                                <i class="fa-solid fa-file-lines"></i> Lihat Laporan
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // GENERATE SURAT UNDANGAN MENGUJI DOSEN (A4 PRINT READY)
+        function openSuratUndanganModal() {
+            const selectedDosenName = document.getElementById('selectDosenLogin').value;
+            const dosenObj = MASTER_DOSEN.find(d => d.nama === selectedDosenName) || MASTER_DOSEN[0];
+            const jadwalMenguji = pknData.filter(d =>
+                d.status === 'Terjadwal' &&
+                (d.penguji1 === selectedDosenName || d.penguji2 === selectedDosenName)
+            );
+
+            if (jadwalMenguji.length === 0) return;
+
+            document.getElementById('printModalTitle').textContent = `Surat Undangan Menguji - ${dosenObj.nama}`;
+            const docArea = document.getElementById('printDocumentArea');
+
+            const rowsHtml = jadwalMenguji.map((item, idx) => `
+                <tr>
+                    <td class="border border-black p-2 text-center">${idx + 1}</td>
+                    <td class="border border-black p-2">
+                        <b>${item.nama}</b><br>
+                        NIM: ${item.nim}<br>
+                        Prodi: ${item.prodi}
+                    </td>
+                    <td class="border border-black p-2 italic">"${item.judul}"</td>
+                    <td class="border border-black p-2">
+                        ${formatTanggalIndo(item.tanggal)}<br>
+                        Pukul: ${item.jam}<br>
+                        Tempat: <b>${item.ruang}</b>
+                    </td>
+                    <td class="border border-black p-2 text-center font-bold">
+                        ${item.penguji1 === selectedDosenName ? 'Penguji 1' : 'Penguji 2'}
+                    </td>
+                </tr>
+            `).join('');
+
+            docArea.innerHTML = `
+                <!-- KOP SURAT RESMI -->
+                <div class="border-b-4 border-double border-black pb-3 mb-5 flex items-center gap-4 text-center">
+                    <div class="w-20 h-20 border-2 border-black rounded-full flex flex-col items-center justify-center shrink-0 font-bold text-[10px] leading-tight p-1">
+                        <span>LOGO</span>
+                        <span>YUDHARTA</span>
+                    </div>
+                    <div class="flex-grow">
+                        <p class="text-sm font-bold uppercase tracking-wide">YAYASAN DARUTTAQWA SENGONAGUNG</p>
+                        <h1 class="text-lg font-bold uppercase">UNIVERSITAS YUDHARTA PASURUAN</h1>
+                        <h2 class="text-base font-bold uppercase">FAKULTAS ILMU SOSIAL DAN ILMU POLITIK (FISIP)</h2>
+                        <p class="text-[11px]">Jl. Yudharta No. 07 (Pesantren Ngalah) Sengonagung Purwosari Pasuruan 67162</p>
+                        <p class="text-[11px]">Website: fisip.yudharta.ac.id • Email: fisip@yudharta.ac.id</p>
+                    </div>
+                </div>
+
+                <!-- KEPALA SURAT -->
+                <div class="flex justify-between items-start text-sm mb-5">
+                    <table>
+                        <tr>
+                            <td class="w-24">Nomor</td>
+                            <td class="w-4">:</td>
+                            <td>142/UND-PKN/FISIP-UYP/XI/2026</td>
+                        </tr>
+                        <tr>
+                            <td>Lampiran</td>
+                            <td>:</td>
+                            <td>1 (Satu) Berkas Laporan PKN</td>
+                        </tr>
+                        <tr>
+                            <td>Perihal</td>
+                            <td>:</td>
+                            <td class="font-bold underline">Undangan Menguji Ujian Praktik Kerja Nyata (PKN)</td>
+                        </tr>
+                    </table>
+                    <p>Pasuruan, 14 November 2026</p>
+                </div>
+
+                <!-- TUJUAN SURAT -->
+                <div class="text-sm mb-4">
+                    <p>Kepada Yth.</p>
+                    <p class="font-bold">${dosenObj.nama}</p>
+                    <p>Dosen Fakultas Ilmu Sosial dan Ilmu Politik</p>
+                    <p>di - Tempat</p>
+                </div>
+
+                <!-- ISI SURAT -->
+                <div class="text-sm text-justify space-y-3 mb-4">
+                    <p><i>Assalamu’alaikum Warahmatullahi Wabarakatuh.</i></p>
+                    <p>
+                        Salam silaturrahmi kami sampaikan, semoga Bapak/Ibu senantiasa dalam lindungan Allah SWT serta sukses dalam menjalankan aktivitas sehari-hari. Amin.
+                    </p>
+                    <p>
+                        Sehubungan dengan telah selesainya pelaksanaan Praktik Kerja Nyata (PKN) mahasiswa Fakultas Ilmu Sosial dan Ilmu Politik Universitas Yudharta Pasuruan, maka dengan ini kami mengharap kehadiran Bapak/Ibu selaku <b>Tim Dosen Penguji Ujian PKN</b> sesuai dengan jadwal sebagai berikut:
+                    </p>
+                </div>
+
+                <!-- TABEL DAFTAR MAHASISWA YANG DIUJI -->
+                <table class="w-full border-collapse border border-black text-xs mb-5">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="border border-black p-2 w-8">No</th>
+                            <th class="border border-black p-2 text-left">Identitas Mahasiswa</th>
+                            <th class="border border-black p-2 text-left">Judul Laporan PKN</th>
+                            <th class="border border-black p-2 text-left">Hari, Tanggal & Ruang</th>
+                            <th class="border border-black p-2 w-24">Jabatan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+
+                <div class="text-sm text-justify space-y-3 mb-8">
+                    <p>
+                        Demikian surat undangan ini kami sampaikan. Atas perhatian, kesediaan, dan kerja sama Bapak/Ibu kami ucapkan terima kasih.
+                    </p>
+                    <p><i>Wassalamu’alaikum Warahmatullahi Wabarakatuh.</i></p>
+                </div>
+
+                <!-- TANDA TANGAN DEKAN -->
+                <div class="flex justify-end text-sm">
+                    <div class="w-72">
+                        <p>Dekan FISIP,</p>
+                        <p>Universitas Yudharta Pasuruan</p>
+                        <div class="h-16"></div>
+                        <p class="font-bold underline">Dr. Any Urwatul Wusko, S.AB., M.AB.</p>
+                        <p>NIDN. 0712048402</p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('printModalOverlay').classList.remove('hidden');
+        }
+
+        // =========================================================================
+        // MODAL SETUP BACKEND & UTILITIES
+        // =========================================================================
+        function openSetupModal() {
+            document.getElementById('modalSetupBackend').classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function saveGasUrl() {
+            const url = document.getElementById('gasWebhookUrl').value.trim();
+            if (!url) {
+                localStorage.removeItem('simpkn_gas_url');
+                document.getElementById('storageModeBadge').textContent = "Local Browser Storage (Demo Aktif)";
+                document.getElementById('storageModeBadge').className = "font-semibold text-indigo-600";
+                showToast("URL dihapus. Aplikasi kembali menggunakan penyimpanan lokal.", "info");
+                return;
+            }
+            localStorage.setItem('simpkn_gas_url', url);
+            document.getElementById('storageModeBadge').textContent = "Terhubung ke Google Sheets API";
+            document.getElementById('storageModeBadge').className = "font-semibold text-emerald-600";
+            showToast("URL Google Apps Script berhasil disimpan!", "success");
+            closeModal('modalSetupBackend');
+        }
+
+        function copyGasCode() {
+            const copyText = document.getElementById("gasCodeSnippet");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            document.execCommand("copy");
+            showToast("Kode Google Apps Script berhasil disalin ke clipboard!", "success");
+        }
+
+        async function syncToGoogleSheets(action, payload) {
+            const gasUrl = localStorage.getItem('simpkn_gas_url');
+            if (!gasUrl) return;
+            try {
+                await fetch(gasUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...payload })
+                });
+            } catch (err) {
+                console.error("Gagal sinkronisasi ke Google Sheets:", err);
+            }
+        }
+
+        // Notifikasi Toast
+        function showToast(message, type = "success") {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const bgColors = {
+                success: "bg-emerald-600 text-white",
+                error: "bg-rose-600 text-white",
+                info: "bg-slate-800 text-white"
+            };
+            const icons = {
+                success: "fa-circle-check",
+                error: "fa-circle-exclamation",
+                info: "fa-circle-info"
+            };
+
+            toast.className = `${bgColors[type]} px-4 py-3 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2.5 transition-all transform translate-y-0 opacity-100`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type]} text-sm"></i><span>${message}</span>`;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
